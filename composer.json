@@ -1,0 +1,44 @@
+{
+    "name": "jcfrane/laravel-md-blog",
+    "description": "Write blog posts as markdown files with YAML front matter. No database, no CMS — just files and a clean query API.",
+    "keywords": ["laravel", "markdown", "blog", "cms", "inertia"],
+    "license": "MIT",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^12.0",
+        "illuminate/cache": "^12.0",
+        "league/commonmark": "^2.5",
+        "spatie/yaml-front-matter": "^2.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "JCFrane\\MdBlog\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "JCFrane\\MdBlog\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "JCFrane\\MdBlog\\MdBlogServiceProvider"
+            ],
+            "aliases": {
+                "MdBlog": "JCFrane\\MdBlog\\Facades\\MdBlog"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

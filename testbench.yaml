@@ -1,0 +1,12 @@
+providers:
+  - Workbench\App\Providers\WorkbenchServiceProvider
+
+env:
+  MD_BLOG_PATH: "resources/markdown/blog"
+  MD_BLOG_CACHE_ENABLED: false
+
+workbench:
+  start: "/"
+  install: true
+  discovers:
+    web: true
