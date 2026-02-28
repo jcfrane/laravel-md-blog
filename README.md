@@ -106,6 +106,31 @@ return Inertia::render('Blog/Show', [
 ]);
 ```
 
+### Images
+
+The package automatically handles images stored within your blog directory.
+
+#### Relative Images
+If you have an image at `resources/markdown/blog/images/photo.png`, you can reference it in your markdown as:
+
+```markdown
+![My Photo](images/photo.png)
+```
+
+The package will automatically rewrite this URL to a dedicated route that serves the image securely.
+
+#### Image Configuration
+By default, images are served with a long cache duration (24 hours). You can customize this in the config:
+
+```php
+'images' => [
+    'enabled'   => true,
+    'cache_ttl' => 86400, // in seconds
+],
+```
+
+When `images.enabled` is `true` (default), the package registers a route at `/{route_prefix}/images/{path}` to serve your assets.
+
 ## Configuration
 
 ```php
@@ -117,6 +142,11 @@ return [
         'enabled' => env('MD_BLOG_CACHE_ENABLED', true),
         'store'   => env('MD_BLOG_CACHE_STORE', null), // null = app default
         'ttl'     => env('MD_BLOG_CACHE_TTL', 3600),
+    ],
+
+    'images' => [
+        'enabled'   => env('MD_BLOG_IMAGES_ENABLED', true),
+        'cache_ttl' => env('MD_BLOG_IMAGES_CACHE_TTL', 86400),
     ],
 
     'commonmark' => [
