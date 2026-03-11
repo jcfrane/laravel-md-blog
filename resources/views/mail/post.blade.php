@@ -27,7 +27,7 @@
                     {{-- Body --}}
                     <tr>
                         <td style="padding: 32px 40px; font-size: 16px; line-height: 1.6; color: #374151;">
-                            {!! $post->html !!}
+                            {!! $emailHtml !!}
                         </td>
                     </tr>
                 </table>
