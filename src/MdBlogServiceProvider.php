@@ -2,7 +2,6 @@
 
 namespace JCFrane\MdBlog;
 
-use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -70,10 +69,11 @@ class MdBlogServiceProvider extends ServiceProvider
 
     private function registerImageRoute(): void
     {
-        // Always ensure we don't leave a stale named route behind when toggling configuration
-        $this->unregisterImageRoute();
-
         if (! config('md-blog.images.enabled', true)) {
+            return;
+        }
+
+        if (Route::has('md-blog.image')) {
             return;
         }
 
@@ -82,27 +82,5 @@ class MdBlogServiceProvider extends ServiceProvider
         Route::get($prefix . '/images/{path}', ImageController::class)
             ->where('path', '.*')
             ->name('md-blog.image');
-    }
-
-    private function unregisterImageRoute(): void
-    {
-        $router = $this->app['router'];
-        $current = $router->getRoutes();
-
-        // Fast path: nothing to do if the route name doesn't exist
-        if ($current->getByName('md-blog.image') === null) {
-            return;
-        }
-
-        // Rebuild the route collection without the md-blog.image route
-        $new = new RouteCollection();
-        foreach ($current->getRoutes() as $route) {
-            if ($route->getName() === 'md-blog.image') {
-                continue;
-            }
-            $new->add($route);
-        }
-
-        $router->setRoutes($new);
     }
 }

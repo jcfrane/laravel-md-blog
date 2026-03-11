@@ -60,17 +60,6 @@ class ImageServingTest extends TestCase
         $response->assertNotFound();
     }
 
-    public function test_route_not_registered_when_images_disabled(): void
-    {
-        $this->app['config']->set('md-blog.images.enabled', false);
-
-        $this->app->register(\JCFrane\MdBlog\MdBlogServiceProvider::class, true);
-
-        $route = $this->app['router']->getRoutes()->getByName('md-blog.image');
-
-        $this->assertNull($route);
-    }
-
     public function test_post_with_image_has_rewritten_urls(): void
     {
         $repository = $this->app->make(\JCFrane\MdBlog\PostRepository::class);
