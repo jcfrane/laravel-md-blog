@@ -5,9 +5,12 @@ namespace JCFrane\MdBlog;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use JCFrane\MdBlog\Console\Commands\SendPostMailCommand;
 use JCFrane\MdBlog\Http\Controllers\ImageController;
+use JCFrane\MdBlog\Http\Controllers\SendPostMailController;
 use JCFrane\MdBlog\Parsers\FrontMatterParser;
 use JCFrane\MdBlog\Parsers\MarkdownParser;
+use JCFrane\MdBlog\Services\PostMailService;
 
 class MdBlogServiceProvider extends ServiceProvider
 {
@@ -52,19 +55,51 @@ class MdBlogServiceProvider extends ServiceProvider
         $this->app->singleton(MdBlog::class, function ($app) {
             return new MdBlog(
                 repository: $app->make(PostRepository::class),
+                postMailService: $app->make(PostMailService::class),
+            );
+        });
+
+        $this->app->singleton(PostMailService::class, function ($app) {
+            return new PostMailService(
+                repository: $app->make(PostRepository::class),
             );
         });
     }
 
     public function boot(): void
     {
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'md-blog');
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/../config/md-blog.php' => config_path('md-blog.php'),
             ], 'md-blog-config');
+
+            $this->publishes([
+                __DIR__ . '/../resources/views' => resource_path('views/vendor/md-blog'),
+            ], 'md-blog-views');
         }
 
         $this->registerImageRoute();
+        $this->registerMailFeature();
+    }
+
+    private function registerMailFeature(): void
+    {
+        if (! config('md-blog.mail.enabled', false)) {
+            return;
+        }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([SendPostMailCommand::class]);
+        }
+
+        $prefix = config('md-blog.route_prefix', 'md-blog');
+        $middleware = config('md-blog.mail.middleware', ['auth']);
+
+        Route::post($prefix . '/send-mail', SendPostMailController::class)
+            ->middleware($middleware)
+            ->name('md-blog.send-mail');
     }
 
     private function registerImageRoute(): void

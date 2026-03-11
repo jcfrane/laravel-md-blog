@@ -3,11 +3,13 @@
 namespace JCFrane\MdBlog;
 
 use Illuminate\Support\Collection;
+use JCFrane\MdBlog\Services\PostMailService;
 
 class MdBlog
 {
     public function __construct(
         private readonly PostRepository $repository,
+        private readonly PostMailService $postMailService,
     ) {}
 
     /**
@@ -56,5 +58,10 @@ class MdBlog
     public function clearCache(): void
     {
         $this->repository->clearCache();
+    }
+
+    public function sendPost(string $path): int
+    {
+        return $this->postMailService->send($path);
     }
 }

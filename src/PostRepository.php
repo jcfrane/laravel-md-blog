@@ -54,6 +54,15 @@ class PostRepository
         return $this->all()->first(fn (Post $post) => $post->slug === $slug);
     }
 
+    public function findByPath(string $absolutePath): ?Post
+    {
+        if (! is_file($absolutePath)) {
+            return null;
+        }
+
+        return $this->loadPost($absolutePath);
+    }
+
     public function clearCache(): void
     {
         $directory = $this->resolvedPath();

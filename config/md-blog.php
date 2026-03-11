@@ -20,4 +20,15 @@ return [
         'html_input' => 'strip',
         'allow_unsafe_links' => false,
     ],
+
+    'mail' => [
+        'enabled' => env('MD_BLOG_MAIL_ENABLED', false),
+        'recipient_model' => env('MD_BLOG_MAIL_RECIPIENT_MODEL', null),
+        'queue' => env('MD_BLOG_MAIL_QUEUE', false),
+        'queue_connection' => env('MD_BLOG_MAIL_QUEUE_CONNECTION', null),
+        'queue_name' => env('MD_BLOG_MAIL_QUEUE_NAME', null),
+        'chunk_size' => env('MD_BLOG_MAIL_CHUNK_SIZE', 50),
+        'middleware' => ['auth'],
+        'subject_prefix' => env('MD_BLOG_MAIL_SUBJECT_PREFIX', ''),
+    ],
 ];

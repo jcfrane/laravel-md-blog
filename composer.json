@@ -8,6 +8,7 @@
         "php": "^8.2",
         "illuminate/support": "^12.0",
         "illuminate/cache": "^12.0",
+        "illuminate/mail": "^12.0",
         "league/commonmark": "^2.5",
         "spatie/yaml-front-matter": "^2.0"
     },

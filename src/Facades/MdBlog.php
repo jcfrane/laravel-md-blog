@@ -13,6 +13,7 @@ use JCFrane\MdBlog\Post;
  * @method static Collection<int, Post> whereCategory(string $category)
  * @method static Collection<int, Post> latest()
  * @method static void clearCache()
+ * @method static int sendPost(string $path)
  *
  * @see \JCFrane\MdBlog\MdBlog
  */

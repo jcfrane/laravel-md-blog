@@ -131,6 +131,79 @@ By default, images are served with a long cache duration (24 hours). You can cus
 
 When `images.enabled` is `true` (default), the package registers a route at `/{route_prefix}/images/{path}` to serve your assets.
 
+### Email
+
+Send blog posts as emails to your subscribers. The feature is opt-in and disabled by default.
+
+#### Setup
+
+1. Set the environment variables:
+
+```env
+MD_BLOG_MAIL_ENABLED=true
+MD_BLOG_MAIL_RECIPIENT_MODEL=App\Models\User
+```
+
+2. Implement the `EmailRecipient` interface on your model:
+
+```php
+use JCFrane\MdBlog\Contracts\EmailRecipient;
+use JCFrane\MdBlog\Traits\ReceivesPostMail;
+use JCFrane\MdBlog\Post;
+
+class User extends Authenticatable implements EmailRecipient
+{
+    use ReceivesPostMail;
+
+    public function shouldReceivePostEmail(Post $post): bool
+    {
+        return $this->subscribed_to_newsletter;
+    }
+}
+```
+
+The `ReceivesPostMail` trait provides defaults for `emailRecipients()` (returns `static::cursor()`), `getEmailAddress()` (`$this->email`), and `getEmailName()` (`$this->name`). Override any of these if your model differs.
+
+#### Sending
+
+Three ways to send:
+
+```bash
+# Artisan command — single post or entire directory
+php artisan md-blog:send-mail resources/markdown/blog/my-post.md
+php artisan md-blog:send-mail resources/markdown/blog/
+```
+
+```php
+// Facade
+MdBlog::sendPost('resources/markdown/blog/my-post.md');
+```
+
+```bash
+# HTTP route (POST /{route_prefix}/send-mail, protected by auth middleware)
+curl -X POST /md-blog/send-mail -d '{"path": "resources/markdown/blog/my-post.md"}'
+```
+
+#### Queue Support
+
+Enable queued sending to avoid blocking:
+
+```env
+MD_BLOG_MAIL_QUEUE=true
+MD_BLOG_MAIL_QUEUE_CONNECTION=redis
+MD_BLOG_MAIL_QUEUE_NAME=emails
+```
+
+#### Customizing the Email Template
+
+Publish the views to customize the email layout:
+
+```bash
+php artisan vendor:publish --tag=md-blog-views
+```
+
+This copies the template to `resources/views/vendor/md-blog/mail/post.blade.php`.
+
 ## Configuration
 
 ```php
@@ -152,6 +225,17 @@ return [
     'commonmark' => [
         'html_input'         => 'strip',
         'allow_unsafe_links' => false,
+    ],
+
+    'mail' => [
+        'enabled'          => env('MD_BLOG_MAIL_ENABLED', false),
+        'recipient_model'  => env('MD_BLOG_MAIL_RECIPIENT_MODEL', null),
+        'queue'            => env('MD_BLOG_MAIL_QUEUE', false),
+        'queue_connection' => env('MD_BLOG_MAIL_QUEUE_CONNECTION', null),
+        'queue_name'       => env('MD_BLOG_MAIL_QUEUE_NAME', null),
+        'chunk_size'       => env('MD_BLOG_MAIL_CHUNK_SIZE', 50),
+        'middleware'       => ['auth'],
+        'subject_prefix'   => env('MD_BLOG_MAIL_SUBJECT_PREFIX', ''),
     ],
 ];
 ```
