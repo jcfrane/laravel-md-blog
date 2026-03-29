@@ -90,4 +90,64 @@ class PostTest extends TestCase
 
         $this->assertStringContainsString('2026-01-01', $array['date']);
     }
+
+    public function test_make_creates_post_from_array(): void
+    {
+        $attributes = [
+            'title' => 'Test Post',
+            'slug' => 'test-post',
+            'date' => Carbon::parse('2026-01-01'),
+            'body' => '# Hello',
+            'html' => '<h1>Hello</h1>',
+            'tags' => ['php', 'laravel'],
+            'category' => 'tutorials',
+            'excerpt' => 'A test post.',
+            'published' => true,
+            'meta' => ['custom' => 'value'],
+            'filePath' => '/tmp/test-post.md',
+            'lastModified' => 1700000000,
+        ];
+
+        $post = Post::make($attributes);
+
+        $this->assertInstanceOf(Post::class, $post);
+        $this->assertSame('Test Post', $post->title);
+        $this->assertSame('test-post', $post->slug);
+        $this->assertSame('<h1>Hello</h1>', $post->html);
+        $this->assertSame(['php', 'laravel'], $post->tags);
+        $this->assertSame(1700000000, $post->lastModified);
+    }
+
+    public function test_make_returns_subclass_instance(): void
+    {
+        $attributes = [
+            'title' => 'Test',
+            'slug' => 'test',
+            'date' => Carbon::parse('2026-01-01'),
+            'body' => '# Hi',
+            'html' => '<h1>Hi</h1>',
+            'tags' => [],
+            'category' => '',
+            'excerpt' => '',
+            'published' => true,
+            'meta' => [],
+            'filePath' => '/tmp/test.md',
+            'lastModified' => 1700000000,
+        ];
+
+        $post = TestCustomPost::make($attributes);
+
+        $this->assertInstanceOf(TestCustomPost::class, $post);
+        $this->assertStringContainsString('<div class="custom">', $post->html);
+    }
+}
+
+class TestCustomPost extends Post
+{
+    public static function make(array $attributes): static
+    {
+        $attributes['html'] = '<div class="custom">' . $attributes['html'] . '</div>';
+
+        return parent::make($attributes);
+    }
 }

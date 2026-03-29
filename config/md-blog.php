@@ -5,6 +5,8 @@ return [
 
     'route_prefix' => env('MD_BLOG_ROUTE_PREFIX', 'md-blog'),
 
+    'post_class' => null,
+
     'cache' => [
         'enabled' => env('MD_BLOG_CACHE_ENABLED', true),
         'store' => env('MD_BLOG_CACHE_STORE', null),
