@@ -11,6 +11,9 @@ use Symfony\Component\Finder\Finder;
 
 class PostRepository
 {
+    /**
+     * @param  class-string<Post>  $postClass
+     */
     public function __construct(
         private readonly FrontMatterParser $frontMatterParser,
         private readonly MarkdownParser $markdownParser,
@@ -18,6 +21,7 @@ class PostRepository
         private readonly string $path,
         private readonly bool $cacheEnabled,
         private readonly int $cacheTtl,
+        private readonly string $postClass = Post::class,
     ) {}
 
     /**
@@ -127,20 +131,20 @@ class PostRepository
         $knownKeys = ['title', 'slug', 'date', 'tags', 'category', 'excerpt', 'published'];
         $meta = array_diff_key($matter, array_flip($knownKeys));
 
-        return new Post(
-            title: $title,
-            slug: $slug,
-            date: $date,
-            body: $body,
-            html: $html,
-            tags: $tags,
-            category: $category,
-            excerpt: $excerpt,
-            published: $published,
-            meta: $meta,
-            filePath: $filePath,
-            lastModified: filemtime($filePath),
-        );
+        return $this->postClass::make([
+            'title' => $title,
+            'slug' => $slug,
+            'date' => $date,
+            'body' => $body,
+            'html' => $html,
+            'tags' => $tags,
+            'category' => $category,
+            'excerpt' => $excerpt,
+            'published' => $published,
+            'meta' => $meta,
+            'filePath' => $filePath,
+            'lastModified' => filemtime($filePath),
+        ]);
     }
 
     private function cacheKey(string $filePath): string

@@ -24,6 +24,27 @@ class Post implements Arrayable, Jsonable, JsonSerializable
         public readonly int $lastModified,
     ) {}
 
+    /**
+     * @param  array{title: string, slug: string, date: Carbon, body: string, html: string, tags: array, category: string, excerpt: string, published: bool, meta: array, filePath: string, lastModified: int}  $attributes
+     */
+    public static function make(array $attributes): static
+    {
+        return new static(
+            title: $attributes['title'],
+            slug: $attributes['slug'],
+            date: $attributes['date'],
+            body: $attributes['body'],
+            html: $attributes['html'],
+            tags: $attributes['tags'],
+            category: $attributes['category'],
+            excerpt: $attributes['excerpt'],
+            published: $attributes['published'],
+            meta: $attributes['meta'],
+            filePath: $attributes['filePath'],
+            lastModified: $attributes['lastModified'],
+        );
+    }
+
     public function toArray(): array
     {
         return [

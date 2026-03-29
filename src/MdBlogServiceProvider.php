@@ -42,6 +42,22 @@ class MdBlogServiceProvider extends ServiceProvider
                 ? Cache::store(config('cache.default'))
                 : Cache::store($cacheStore);
 
+            $postClass = config('md-blog.post_class');
+
+            if ($postClass !== null) {
+                if (! class_exists($postClass)) {
+                    throw new \InvalidArgumentException(
+                        "Post class [{$postClass}] does not exist."
+                    );
+                }
+
+                if (! is_subclass_of($postClass, Post::class)) {
+                    throw new \InvalidArgumentException(
+                        "Post class [{$postClass}] must extend " . Post::class
+                    );
+                }
+            }
+
             return new PostRepository(
                 frontMatterParser: $app->make(FrontMatterParser::class),
                 markdownParser: $app->make(MarkdownParser::class),
@@ -49,6 +65,7 @@ class MdBlogServiceProvider extends ServiceProvider
                 path: config('md-blog.path', 'resources/markdown/blog'),
                 cacheEnabled: config('md-blog.cache.enabled', true),
                 cacheTtl: (int) config('md-blog.cache.ttl', 3600),
+                postClass: $postClass ?? Post::class,
             );
         });
 
