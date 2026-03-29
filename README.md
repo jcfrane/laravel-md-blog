@@ -106,6 +106,40 @@ return Inertia::render('Blog/Show', [
 ]);
 ```
 
+### Custom Post Model
+
+You can extend the base `Post` class to customize how posts are built — for example, to apply syntax highlighting to code blocks.
+
+Set the `post_class` config option to your custom class:
+
+```php
+// config/md-blog.php
+'post_class' => App\Blog\CustomPost::class,
+```
+
+Then create a class that extends `Post` and overrides the `make()` factory method:
+
+```php
+namespace App\Blog;
+
+use JCFrane\MdBlog\Post;
+
+class CustomPost extends Post
+{
+    public static function make(array $attributes): static
+    {
+        // Transform the rendered HTML before readonly properties are set
+        $attributes['html'] = \Spatie\ShikiPhp\Shiki::highlight($attributes['html']);
+
+        return parent::make($attributes);
+    }
+}
+```
+
+The `make()` method receives all post attributes as an array. You can modify any of them (`html`, `title`, `body`, etc.) before calling `parent::make()` to construct the post.
+
+> **Note:** After changing `post_class`, run `MdBlog::clearCache()` to rebuild cached posts with the new class.
+
 ### Images
 
 The package automatically handles images stored within your blog directory.
@@ -210,6 +244,8 @@ This copies the template to `resources/views/vendor/md-blog/mail/post.blade.php`
 // config/md-blog.php
 return [
     'path' => env('MD_BLOG_PATH', 'resources/markdown/blog'),
+
+    'post_class' => null, // e.g. App\Blog\CustomPost::class
 
     'cache' => [
         'enabled' => env('MD_BLOG_CACHE_ENABLED', true),
