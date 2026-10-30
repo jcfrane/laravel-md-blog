@@ -7,10 +7,18 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Collection;
 use JCFrane\MdBlog\Parsers\FrontMatterParser;
 use JCFrane\MdBlog\Parsers\MarkdownParser;
+use JCFrane\MdBlog\Support\ImageUrlResolver;
+use JCFrane\MdBlog\Support\Text;
 use Symfony\Component\Finder\Finder;
 
 class PostRepository
 {
+    /**
+     * Bump when the shape of a cached Post changes so stale entries are re-parsed
+     * instead of unserialized with missing properties.
+     */
+    public const CACHE_VERSION = 2;
+
     /**
      * @param  class-string<Post>  $postClass
      */
@@ -22,9 +30,14 @@ class PostRepository
         private readonly bool $cacheEnabled,
         private readonly int $cacheTtl,
         private readonly string $postClass = Post::class,
+        private readonly ?ImageUrlResolver $imageUrlResolver = null,
+        private readonly int $excerptLength = 160,
+        private readonly int $wordsPerMinute = 200,
     ) {}
 
     /**
+     * Every post in the directory, drafts included, in filesystem order.
+     *
      * @return Collection<int, Post>
      */
     public function all(): Collection
@@ -35,14 +48,9 @@ class PostRepository
             return collect();
         }
 
-        $finder = (new Finder())
-            ->files()
-            ->name('*.md')
-            ->in($directory);
-
         $posts = collect();
 
-        foreach ($finder as $file) {
+        foreach ($this->markdownFiles($directory) as $file) {
             $post = $this->loadPost($file->getRealPath());
 
             if ($post !== null) {
@@ -50,11 +58,30 @@ class PostRepository
             }
         }
 
+        $this->storeSlugIndex($posts);
+
         return $posts;
     }
 
+    /**
+     * Look a post up through the cached slug index, falling back to a full
+     * scan when the index is cold or stale (file moved, slug changed).
+     */
     public function findBySlug(string $slug): ?Post
     {
+        if ($this->cacheEnabled) {
+            $index = $this->cache->get($this->slugIndexKey());
+            $filePath = is_array($index) ? ($index[$slug] ?? null) : null;
+
+            if (is_string($filePath) && is_file($filePath)) {
+                $post = $this->loadPost($filePath);
+
+                if ($post !== null && $post->slug === $slug) {
+                    return $post;
+                }
+            }
+        }
+
         return $this->all()->first(fn (Post $post) => $post->slug === $slug);
     }
 
@@ -69,20 +96,25 @@ class PostRepository
 
     public function clearCache(): void
     {
+        $this->cache->forget($this->slugIndexKey());
+
         $directory = $this->resolvedPath();
 
         if (! is_dir($directory)) {
             return;
         }
 
-        $finder = (new Finder())
+        foreach ($this->markdownFiles($directory) as $file) {
+            $this->cache->forget($this->cacheKey($file->getRealPath()));
+        }
+    }
+
+    private function markdownFiles(string $directory): Finder
+    {
+        return (new Finder())
             ->files()
             ->name('*.md')
             ->in($directory);
-
-        foreach ($finder as $file) {
-            $this->cache->forget($this->cacheKey($file->getRealPath()));
-        }
     }
 
     private function loadPost(string $filePath): ?Post
@@ -94,7 +126,11 @@ class PostRepository
         $key = $this->cacheKey($filePath);
         $cached = $this->cache->get($key);
 
-        if ($cached instanceof Post && $cached->lastModified === filemtime($filePath)) {
+        if (
+            $cached instanceof Post
+            && get_class($cached) === $this->postClass
+            && $cached->lastModified === filemtime($filePath)
+        ) {
             return $cached;
         }
 
@@ -120,15 +156,22 @@ class PostRepository
         $body = $parsed['body'];
         $html = $this->markdownParser->toHtml($body);
 
-        $slug = $matter['slug'] ?? pathinfo($filePath, PATHINFO_FILENAME);
-        $title = $matter['title'] ?? $slug;
+        $slug = (string) ($matter['slug'] ?? pathinfo($filePath, PATHINFO_FILENAME));
+        $title = (string) ($matter['title'] ?? $slug);
         $date = isset($matter['date']) ? Carbon::parse($matter['date']) : Carbon::createFromTimestamp(filemtime($filePath));
-        $tags = $matter['tags'] ?? [];
-        $category = $matter['category'] ?? '';
-        $excerpt = $matter['excerpt'] ?? '';
-        $published = $matter['published'] ?? true;
+        $tags = (array) ($matter['tags'] ?? []);
+        $category = (string) ($matter['category'] ?? '');
+        $published = (bool) ($matter['published'] ?? true);
 
-        $knownKeys = ['title', 'slug', 'date', 'tags', 'category', 'excerpt', 'published'];
+        $excerpt = isset($matter['excerpt']) && trim((string) $matter['excerpt']) !== ''
+            ? (string) $matter['excerpt']
+            : Text::excerpt($html, $this->excerptLength);
+
+        $cover = isset($matter['cover']) && trim((string) $matter['cover']) !== ''
+            ? $this->resolveCover((string) $matter['cover'])
+            : null;
+
+        $knownKeys = ['title', 'slug', 'date', 'tags', 'category', 'excerpt', 'cover', 'published'];
         $meta = array_diff_key($matter, array_flip($knownKeys));
 
         return $this->postClass::make([
@@ -140,6 +183,8 @@ class PostRepository
             'tags' => $tags,
             'category' => $category,
             'excerpt' => $excerpt,
+            'cover' => $cover,
+            'readingTime' => Text::readingTime($html, $this->wordsPerMinute),
             'published' => $published,
             'meta' => $meta,
             'filePath' => $filePath,
@@ -147,9 +192,37 @@ class PostRepository
         ]);
     }
 
+    private function resolveCover(string $cover): string
+    {
+        if ($this->imageUrlResolver === null) {
+            return $cover;
+        }
+
+        return $this->imageUrlResolver->resolve($cover);
+    }
+
+    /**
+     * @param  Collection<int, Post>  $posts
+     */
+    private function storeSlugIndex(Collection $posts): void
+    {
+        if (! $this->cacheEnabled) {
+            return;
+        }
+
+        $index = $posts->mapWithKeys(fn (Post $post) => [$post->slug => $post->filePath])->all();
+
+        $this->cache->put($this->slugIndexKey(), $index, $this->cacheTtl);
+    }
+
     private function cacheKey(string $filePath): string
     {
-        return 'md_blog_post_' . md5($filePath);
+        return 'md_blog_post_v' . self::CACHE_VERSION . '_' . md5($filePath);
+    }
+
+    private function slugIndexKey(): string
+    {
+        return 'md_blog_index_v' . self::CACHE_VERSION . '_' . md5($this->resolvedPath());
     }
 
     private function resolvedPath(): string

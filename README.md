@@ -47,10 +47,15 @@ Your markdown content here.
 | `date` | No | File modification time |
 | `tags` | No | `[]` |
 | `category` | No | `""` |
-| `excerpt` | No | `""` |
+| `excerpt` | No | Generated from the body (see below) |
+| `cover` | No | `null` |
 | `published` | No | `true` |
 
 Any additional front matter fields are available via `$post->meta`.
+
+**Excerpt.** When `excerpt` is omitted, one is built from the first `excerpt_length` characters (default 160) of the body's prose. Headings and code blocks are skipped, and the cut lands on a word boundary.
+
+**Cover.** `cover` works like an image in the body: a path relative to the blog directory (`images/cover.jpg`) is rewritten to the image route, while absolute URLs are kept as they are. The resolved URL is on `$post->cover`.
 
 ### Querying Posts
 
@@ -72,11 +77,57 @@ $posts = MdBlog::whereCategory('tutorials');
 // Published posts, newest first
 $posts = MdBlog::latest();
 
+// Paginated, newest first (page read from the request like Eloquent)
+$posts = MdBlog::paginate(9);
+
 // Clear the cache
 MdBlog::clearCache();
 ```
 
-All query methods return Laravel Collections (except `find()` which returns a `Post` or `null`). Drafts (`published: false`) are automatically excluded.
+All query methods return Laravel Collections (except `find()` which returns a `Post` or `null`, and `paginate()` which returns a `LengthAwarePaginator`). Results are newest first. Drafts (`published: false`) are automatically excluded.
+
+### Query Builder
+
+For anything beyond a single filter, chain conditions on a query:
+
+```php
+MdBlog::query()
+    ->whereTag(['sleep', 'focus'])      // any of these tags
+    ->whereAllTags(['sleep', 'science']) // every one of these tags
+    ->whereCategory('guides')            // string or array
+    ->whereMeta('author', 'JC')          // extra front matter; one arg checks the key exists
+    ->whereYear(2026)
+    ->search('white noise')              // case-insensitive over title, excerpt, tags, body
+    ->where(fn (Post $post) => $post->readingTime <= 5)
+    ->latest()                           // or ->oldest(), ->orderBy('title'), ->orderBy(fn ($p) => ..., 'desc')
+    ->skip(10)->take(5)
+    ->get();                             // ->first(), ->count(), ->exists()
+```
+
+#### Pagination
+
+`paginate()` returns a `LengthAwarePaginator`, so it renders in Blade with `{{ $posts->links() }}` and serializes for Inertia as `{ data, links, meta... }` the same way an Eloquent paginator does:
+
+```php
+return Inertia::render('Blog/Index', [
+    'posts' => MdBlog::query()->whereTag($tag)->paginate(9),
+]);
+```
+
+The current page is read from the request's `page` query string. Pass a different name or an explicit page with `paginate(9, 'p', $page)`.
+
+#### Previous, Next and Related
+
+```php
+$post = MdBlog::find($slug);
+
+MdBlog::previous($post); // older post or null
+MdBlog::next($post);     // newer post or null
+MdBlog::related($post);  // up to 3 posts sharing tags or category, best match first
+MdBlog::related($post, 6);
+```
+
+Related posts are scored by shared tags (two points each) plus one point for the same category. Posts with no overlap are left out.
 
 ### The Post Object
 
@@ -90,7 +141,9 @@ $post->body;         // raw markdown
 $post->html;         // rendered HTML
 $post->tags;         // array
 $post->category;     // string
-$post->excerpt;      // string
+$post->excerpt;      // string (front matter or generated)
+$post->cover;        // string|null (resolved URL)
+$post->readingTime;  // int, minutes
 $post->published;    // bool
 $post->meta;         // array (extra front matter fields)
 $post->filePath;     // string
@@ -138,7 +191,7 @@ class CustomPost extends Post
 
 The `make()` method receives all post attributes as an array. You can modify any of them (`html`, `title`, `body`, etc.) before calling `parent::make()` to construct the post.
 
-> **Note:** After changing `post_class`, run `MdBlog::clearCache()` to rebuild cached posts with the new class.
+Cached posts built with a different class are re-parsed automatically, so no cache clear is needed after changing `post_class`.
 
 ### Images
 
@@ -164,6 +217,16 @@ By default, images are served with a long cache duration (24 hours). You can cus
 ```
 
 When `images.enabled` is `true` (default), the package registers a route at `/{route_prefix}/images/{path}` to serve your assets.
+
+#### Absolute URLs (APIs, mobile apps, email)
+
+Image URLs are root-relative by default (`/md-blog/images/photo.png`). That breaks as soon as the HTML leaves your web page: a mobile app reading the JSON API or an email client has no origin to resolve against. Set the base URL and every image and cover URL becomes absolute:
+
+```env
+MD_BLOG_URL=https://huniapp.io
+```
+
+Rendered HTML is cached, so the base URL is baked in at parse time. Run `MdBlog::clearCache()` after changing it.
 
 ### Email
 
@@ -245,7 +308,15 @@ This copies the template to `resources/views/vendor/md-blog/mail/post.blade.php`
 return [
     'path' => env('MD_BLOG_PATH', 'resources/markdown/blog'),
 
+    'route_prefix' => env('MD_BLOG_ROUTE_PREFIX', 'md-blog'),
+
+    // Base URL for image and cover URLs; null keeps them root-relative.
+    'url' => env('MD_BLOG_URL', null),
+
     'post_class' => null, // e.g. App\Blog\CustomPost::class
+
+    'excerpt_length'   => env('MD_BLOG_EXCERPT_LENGTH', 160),
+    'words_per_minute' => env('MD_BLOG_WORDS_PER_MINUTE', 200),
 
     'cache' => [
         'enabled' => env('MD_BLOG_CACHE_ENABLED', true),
@@ -278,7 +349,7 @@ return [
 
 ## Caching
 
-Posts are cached per-file with automatic staleness detection — when a file is modified, the cached entry is automatically refreshed on the next read. Use `MdBlog::clearCache()` to force a full cache bust.
+Posts are cached per-file with automatic staleness detection — when a file is modified, the cached entry is automatically refreshed on the next read. A slug index is cached alongside so `find()` opens one file instead of scanning the directory; it rebuilds itself when a file is added, moved, removed or its slug changes. Use `MdBlog::clearCache()` to force a full cache bust.
 
 ## Development
 

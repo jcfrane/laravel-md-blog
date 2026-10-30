@@ -22,10 +22,12 @@ class Post implements Arrayable, Jsonable, JsonSerializable
         public readonly array $meta,
         public readonly string $filePath,
         public readonly int $lastModified,
+        public readonly ?string $cover = null,
+        public readonly int $readingTime = 0,
     ) {}
 
     /**
-     * @param  array{title: string, slug: string, date: Carbon, body: string, html: string, tags: array, category: string, excerpt: string, published: bool, meta: array, filePath: string, lastModified: int}  $attributes
+     * @param  array{title: string, slug: string, date: Carbon, body: string, html: string, tags: array, category: string, excerpt: string, published: bool, meta: array, filePath: string, lastModified: int, cover?: string|null, readingTime?: int}  $attributes
      */
     public static function make(array $attributes): static
     {
@@ -42,6 +44,8 @@ class Post implements Arrayable, Jsonable, JsonSerializable
             meta: $attributes['meta'],
             filePath: $attributes['filePath'],
             lastModified: $attributes['lastModified'],
+            cover: $attributes['cover'] ?? null,
+            readingTime: $attributes['readingTime'] ?? 0,
         );
     }
 
@@ -56,6 +60,8 @@ class Post implements Arrayable, Jsonable, JsonSerializable
             'tags' => $this->tags,
             'category' => $this->category,
             'excerpt' => $this->excerpt,
+            'cover' => $this->cover,
+            'readingTime' => $this->readingTime,
             'published' => $this->published,
             'meta' => $this->meta,
             'filePath' => $this->filePath,

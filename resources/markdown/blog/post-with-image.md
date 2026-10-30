@@ -2,6 +2,7 @@
 title: Post With Image
 slug: post-with-image
 date: 2026-02-01
+cover: images/test.png
 published: true
 ---
 

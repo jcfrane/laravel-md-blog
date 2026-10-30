@@ -11,6 +11,7 @@ use JCFrane\MdBlog\Http\Controllers\SendPostMailController;
 use JCFrane\MdBlog\Parsers\FrontMatterParser;
 use JCFrane\MdBlog\Parsers\MarkdownParser;
 use JCFrane\MdBlog\Services\PostMailService;
+use JCFrane\MdBlog\Support\ImageUrlResolver;
 
 class MdBlogServiceProvider extends ServiceProvider
 {
@@ -20,11 +21,19 @@ class MdBlogServiceProvider extends ServiceProvider
 
         $this->app->singleton(FrontMatterParser::class);
 
+        $this->app->singleton(ImageUrlResolver::class, function ($app) {
+            return new ImageUrlResolver(
+                routePrefix: config('md-blog.route_prefix', 'md-blog'),
+                baseUrl: config('md-blog.url') ?: null,
+            );
+        });
+
         $this->app->singleton(MarkdownParser::class, function ($app) {
             return new MarkdownParser(
                 config: config('md-blog.commonmark', []),
                 imageRewriteEnabled: config('md-blog.images.enabled', true),
                 routePrefix: config('md-blog.route_prefix', 'md-blog'),
+                baseUrl: config('md-blog.url') ?: null,
             );
         });
 
@@ -66,6 +75,9 @@ class MdBlogServiceProvider extends ServiceProvider
                 cacheEnabled: config('md-blog.cache.enabled', true),
                 cacheTtl: (int) config('md-blog.cache.ttl', 3600),
                 postClass: $postClass ?? Post::class,
+                imageUrlResolver: config('md-blog.images.enabled', true) ? $app->make(ImageUrlResolver::class) : null,
+                excerptLength: (int) config('md-blog.excerpt_length', 160),
+                wordsPerMinute: (int) config('md-blog.words_per_minute', 200),
             );
         });
 

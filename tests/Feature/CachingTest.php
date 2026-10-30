@@ -4,6 +4,7 @@ namespace JCFrane\MdBlog\Tests\Feature;
 
 use Illuminate\Support\Facades\Cache;
 use JCFrane\MdBlog\MdBlog;
+use JCFrane\MdBlog\PostRepository;
 use JCFrane\MdBlog\Tests\TestCase;
 
 class CachingTest extends TestCase
@@ -47,7 +48,7 @@ class CachingTest extends TestCase
     public function test_cache_keys_are_md5_based(): void
     {
         $filePath = $this->fixturesPath('hello-world.md');
-        $expectedKey = 'md_blog_post_' . md5($filePath);
+        $expectedKey = 'md_blog_post_v' . PostRepository::CACHE_VERSION . '_' . md5($filePath);
 
         // Load to trigger caching
         $this->blog()->all();

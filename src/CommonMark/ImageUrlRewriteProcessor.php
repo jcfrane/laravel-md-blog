@@ -2,15 +2,23 @@
 
 namespace JCFrane\MdBlog\CommonMark;
 
+use JCFrane\MdBlog\Support\ImageUrlResolver;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\Node\Query;
 
 class ImageUrlRewriteProcessor
 {
+    private readonly ImageUrlResolver $resolver;
+
     public function __construct(
-        private readonly string $routePrefix,
-    ) {}
+        string|ImageUrlResolver $routePrefix,
+        ?string $baseUrl = null,
+    ) {
+        $this->resolver = $routePrefix instanceof ImageUrlResolver
+            ? $routePrefix
+            : new ImageUrlResolver($routePrefix, $baseUrl);
+    }
 
     public function __invoke(DocumentParsedEvent $event): void
     {
@@ -22,40 +30,7 @@ class ImageUrlRewriteProcessor
 
         foreach ($images as $image) {
             /** @var Image $image */
-            $url = $image->getUrl();
-
-            if ($this->isRelativeUrl($url)) {
-                $image->setUrl('/' . trim($this->routePrefix, '/') . '/images/' . $url);
-            }
+            $image->setUrl($this->resolver->resolve($image->getUrl()));
         }
-    }
-
-    private function isRelativeUrl(string $url): bool
-    {
-        if ($url === '') {
-            return false;
-        }
-
-        // Skip absolute URLs (http://, https://, etc.)
-        if (preg_match('#^[a-z][a-z0-9+\-.]*://#i', $url)) {
-            return false;
-        }
-
-        // Skip protocol-relative URLs (//example.com)
-        if (str_starts_with($url, '//')) {
-            return false;
-        }
-
-        // Skip root-relative URLs (/path/to/image)
-        if (str_starts_with($url, '/')) {
-            return false;
-        }
-
-        // Skip data URIs
-        if (str_starts_with($url, 'data:')) {
-            return false;
-        }
-
-        return true;
     }
 }
